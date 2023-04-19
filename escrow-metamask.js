@@ -5,83 +5,109 @@ import { Address } from "@unique-nft/utils";
 
 const { sdk, signer, contractAddress, contractAbi } = init();
 
-const provider = new ethers.JsonRpcProvider("https://rpc-opal.unique.network");
-const ownerWallet = new ethers.Wallet(process.env.PRIVATE_KEY2, provider);
+const provider = new ethers.providers.JsonRpcBatchProvider(process.env.RPC_URL);
 
-const otherWallet = new ethers.Wallet(process.env.PRIVATE_KEY1, provider);
+async function getWallets(collectionId, tokenId) {
+  const wallet1 = new ethers.Wallet(process.env.PRIVATE_KEY1, provider);
 
-async function transferToken(collectionId, tokenId) {
+  const wallet2 = new ethers.Wallet(process.env.PRIVATE_KEY2, provider);
+
+  const ownerBefore = await sdk.token.owner({
+    collectionId,
+    tokenId,
+  });
+  console.log("owner before buy", ownerBefore);
+  if (ownerBefore.owner.toLowerCase() === wallet1.address.toLowerCase()) {
+    return {
+      ownerWallet: wallet1,
+      otherWallet: wallet2,
+    };
+  } else {
+    return {
+      ownerWallet: wallet2,
+      otherWallet: wallet1,
+    };
+  }
+}
+
+async function transferToken(collectionId, tokenId, toAddress) {
   const { owner } = await sdk.token.owner({
     collectionId,
     tokenId,
   });
-  console.log("owner", owner);
-  if (owner.toLowerCase() !== ownerWallet.address.toLowerCase()) {
-    console.log("run transfer");
+  if (owner.toLowerCase() === signer.address.toLowerCase()) {
+    console.log(`--> transfer token from ${signer.address} to ${toAddress}`);
     try {
-      const result = await sdk.token.transfer.submitWaitResult({
+      await sdk.token.transfer.submitWaitResult({
         address: signer.address,
         collectionId,
         tokenId,
-        to: ownerWallet.address,
+        to: toAddress,
       });
-      console.log("transfer result", result);
+      console.log("<-- transfer token complete");
     } catch (err) {
       console.log("transfer error", err);
     }
   }
 }
 
-async function getOrder(contract) {
+async function getOrder(contract, collectionId, tokenId) {
   let order;
   try {
     order = await contract.getOrder(collectionId, tokenId);
-    console.log("order", order);
     return order;
   } catch (err) {}
 }
 
+async function runApprove(wallet, collectionId, tokenId) {
+  console.log(`--> approve contract by account ${wallet.address}`);
+  const collectionAddress = Address.collection.idToAddress(collectionId);
+  const collection = await UniqueNFTFactory(collectionAddress, wallet, ethers);
+  let approved = await collection.getApproved(tokenId);
+
+  if (!approved || approved.toLowerCase() !== contractAddress.toLowerCase()) {
+    await (await collection.approve(contractAddress, tokenId)).wait();
+  }
+
+  approved = await collection.getApproved(tokenId);
+
+  console.log(`<-- approve complete`);
+  return approved && approved.toLowerCase() === contractAddress.toLowerCase();
+}
+
 async function put(contract, collectionId, tokenId) {
+  console.log(`--> put to sell by account ${contract.signer.address}`);
   try {
-    console.log("run put");
     const tx = await contract.put(collectionId, tokenId, 123, 1, {
       gasLimit: 10_000_000,
     });
-    const result = await tx.wait();
-    console.log("put result", result);
+    await tx.wait();
+
+    console.log("<-- put to sell complete");
     return true;
   } catch (err) {
     console.log("put err", err);
   }
 }
 
-async function approveEthers(collectionId, tokenId) {
-  console.log("run approveEthers");
-  const collectionAddress = Address.collection.idToAddress(collectionId);
-  const collection = await UniqueNFTFactory(
-    collectionAddress,
-    ownerWallet,
-    ethers
-  );
-  let approved = await collection.getApproved(tokenId);
-
-  if (!approved || approved.toLowerCase() !== contractAddress.toLowerCase()) {
-    const result = await (
-      await collection.approve(contractAddress, tokenId)
-    ).wait();
-    console.log("approveEthers result", result);
-  }
-
-  approved = await collection.getApproved(tokenId);
-
-  return approved && approved.toLowerCase() === contractAddress.toLowerCase();
+async function runBuy(contract, collectionId, tokenId) {
+  console.log(`--> buy by account ${contract.signer.address}`);
+  await (
+    await contract.buy(collectionId, tokenId, 1, {
+      value: 200,
+      gasLimit: 10_000_000,
+    })
+  ).wait();
+  console.log("<-- buy complete");
 }
 
 async function main() {
-  console.log("start", ownerWallet.address);
+  console.log("start");
   const collectionId = await getCollection();
   const tokenId = await getToken();
   console.log(`token: ${collectionId}x${tokenId}`);
+
+  const { ownerWallet, otherWallet } = await getWallets(collectionId, tokenId);
 
   const ownerContract = new ethers.Contract(
     contractAddress,
@@ -94,11 +120,11 @@ async function main() {
     otherWallet
   );
 
-  const order = await getOrder(ownerContract);
+  const order = await getOrder(ownerContract, collectionId, tokenId);
   if (!order) {
-    await transferToken(collectionId, tokenId);
+    await transferToken(collectionId, tokenId, ownerWallet.address);
 
-    const resultApprove = await approveEthers(collectionId, tokenId);
+    const resultApprove = await runApprove(ownerWallet, collectionId, tokenId);
     if (!resultApprove) {
       return;
     }
@@ -109,19 +135,19 @@ async function main() {
     }
   }
 
-  const result = await (
-    await otherContract.buy(collectionId, tokenId, 1, {
-      value: 200,
-      gasLimit: 10_000_000,
-    })
-  ).wait();
-  console.log("buy result", result);
+  await runBuy(otherContract, collectionId, tokenId);
 
-  const ownerResult = await sdk.token.owner({
+  const ownerAfter = await sdk.token.owner({
     collectionId,
     tokenId,
   });
-  console.log("owner after buy", ownerResult);
+  console.log("owner after buy", ownerAfter);
 }
 
-main();
+main()
+  .then(() => {
+    console.log("exited ok");
+  })
+  .catch((err) => {
+    console.log("exited error", err);
+  });

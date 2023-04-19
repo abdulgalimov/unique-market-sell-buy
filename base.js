@@ -33,16 +33,18 @@ export async function getCollection() {
   if (data.collectionId) {
     return data.collectionId;
   }
+  console.log(`--> create collection`);
   const collection = await sdk.collection.create.submitWaitResult({
     address: signer.address,
     name: "test",
     tokenPrefix: "tst",
     description: "test collection",
   });
-  console.log("collection", collection);
 
   data.collectionId = collection.parsed.collectionId;
   saveData();
+
+  console.log(`--> create collection complete: ${data.collectionId}`);
 
   return data.collectionId;
 }
@@ -51,6 +53,8 @@ export async function getToken() {
   if (data.tokenId) {
     return data.tokenId;
   }
+
+  console.log(`--> create token`);
   const token = await sdk.token.create.submitWaitResult({
     address: signer.address,
     collectionId: data.collectionId,
@@ -60,29 +64,9 @@ export async function getToken() {
   data.tokenId = token.parsed.tokenId;
   saveData();
 
+  console.log(`--> create token complete: ${data.tokenId}`);
+
   return data.tokenId;
-}
-
-export async function approveIfNeed() {
-  const { isAllowed } = await sdk.token.allowance({
-    collectionId: data.collectionId,
-    tokenId: data.tokenId,
-    from: signer.address,
-    to: contractAddress,
-  });
-  console.log("isAllowed", isAllowed);
-
-  if (!isAllowed) {
-    const approveRes = await sdk.token.approve.submitWaitResult({
-      address: signer.address,
-      collectionId: data.collectionId,
-      tokenId: data.tokenId,
-      spender: contractAddress,
-      isApprove: true,
-    });
-    console.log("approveRes", approveRes);
-    return !approveRes.error;
-  }
 }
 
 export function init() {
