@@ -1,0 +1,12 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@unique-nft/accounts": "^0.3.5",
+    "@unique-nft/sdk": "file:///Users/abdulgalimov/unique/sdk/sdk1/dist/packages/sdk",
+    "@unique-nft/solidity-interfaces": "^0.52.1",
+    "@unique-nft/utils": "^0.3.11",
+    "dotenv": "^16.0.3",
+    "ethers": "^6.3.0",
+    "prettier": "^2.8.7"
+  }
+}
