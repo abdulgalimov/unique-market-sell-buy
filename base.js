@@ -44,7 +44,7 @@ export async function getCollection() {
   data.collectionId = collection.parsed.collectionId;
   saveData();
 
-  console.log(`--> create collection complete: ${data.collectionId}`);
+  console.log(`<-- create collection complete: ${data.collectionId}`);
 
   return data.collectionId;
 }
@@ -64,7 +64,7 @@ export async function getToken() {
   data.tokenId = token.parsed.tokenId;
   saveData();
 
-  console.log(`--> create token complete: ${data.tokenId}`);
+  console.log(`<-- create token complete: ${data.tokenId}`);
 
   return data.tokenId;
 }
