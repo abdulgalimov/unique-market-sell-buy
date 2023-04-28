@@ -55,7 +55,7 @@ async function getOrder(contract, collectionId, tokenId) {
   let order;
   try {
     order = await contract.getOrder(collectionId, tokenId);
-    return order;
+    return order.collectionId ? order : null;
   } catch (err) {}
 }
 
@@ -78,9 +78,16 @@ async function runApprove(wallet, collectionId, tokenId) {
 async function put(contract, collectionId, tokenId) {
   console.log(`--> put to sell by account ${contract.signer.address}`);
   try {
-    const tx = await contract.put(collectionId, tokenId, 123, 1, {
-      gasLimit: 10_000_000,
-    });
+    const tx = await contract.put(
+      collectionId,
+      tokenId,
+      12,
+      1,
+      Address.extract.ethCrossAccountId(contract.signer.address),
+      {
+        gasLimit: 10_000_000,
+      }
+    );
     await tx.wait();
 
     console.log("<-- put to sell complete");
@@ -93,18 +100,24 @@ async function put(contract, collectionId, tokenId) {
 async function runBuy(contract, collectionId, tokenId) {
   console.log(`--> buy by account ${contract.signer.address}`);
   await (
-    await contract.buy(collectionId, tokenId, 1, {
-      value: 200,
-      gasLimit: 10_000_000,
-    })
+    await contract.buy(
+      collectionId,
+      tokenId,
+      1,
+      Address.extract.ethCrossAccountId(contract.signer.address),
+      {
+        value: "200",
+        gasLimit: 10_000_000,
+      }
+    )
   ).wait();
   console.log("<-- buy complete");
 }
 
 async function main() {
-  console.log("start");
+  console.log("metamask-metamask start");
   const collectionId = await getCollection();
-  const tokenId = await getToken();
+  const tokenId = await getToken(true);
   console.log(`token: ${collectionId}x${tokenId}`);
 
   const { ownerWallet, otherWallet } = await getWallets(collectionId, tokenId);
@@ -135,7 +148,7 @@ async function main() {
     }
   }
 
-  await runBuy(otherContract, collectionId, tokenId);
+  await runBuy(otherContract, collectionId, tokenId, otherContract.address);
 
   const ownerAfter = await sdk.token.owner({
     collectionId,

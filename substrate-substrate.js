@@ -20,28 +20,6 @@ async function getOrder(contract) {
   }
 }
 
-export async function approveIfNeed() {
-  const { isAllowed } = await sdk.token.allowance({
-    collectionId: data.collectionId,
-    tokenId: data.tokenId,
-    from: signer.address,
-    to: contractAddress,
-  });
-  console.log("isAllowed", isAllowed);
-
-  if (!isAllowed) {
-    const approveRes = await sdk.token.approve.submitWaitResult({
-      address: signer.address,
-      collectionId: data.collectionId,
-      tokenId: data.tokenId,
-      spender: contractAddress,
-      isApprove: true,
-    });
-    console.log("approveRes", approveRes);
-    return !approveRes.error;
-  }
-}
-
 async function put(contract) {
   const putResult = await contract.send.submitWaitResult({
     address: signer.address,
@@ -62,7 +40,7 @@ async function buy(contract) {
     address: signer.address,
     funcName: "buy",
     gasLimit: 10_000_000,
-    value: 10_000_000,
+    value: 100,
     args: {
       collectionId: data.collectionId,
       tokenId: data.tokenId,
@@ -70,7 +48,6 @@ async function buy(contract) {
     },
   };
 
-  /*
   try {
     const callResult = await sdk.evm.call({
       ...args,
@@ -80,27 +57,30 @@ async function buy(contract) {
     console.log("callResult", callResult);
   } catch (err) {
     console.log("buy err", JSON.stringify(err, null, 2));
+    return;
   }
-   */
 
   const buyResult = await contract.send.submitWaitResult(args);
   console.log("buy", JSON.stringify(buyResult, null, 2));
 }
 
 async function main() {
-  console.log("start", signer.address);
+  console.log("substrate-substrate start", signer.address);
   const collectionId = await getCollection();
   const tokenId = await getToken();
   console.log(`token: ${collectionId}x${tokenId}`);
 
-  await approveIfNeed();
-
   const contract = await sdk.evm.contractConnect(contractAddress, contractAbi);
 
-  const order = await getOrder(contract);
-  console.log("order", order);
+  let order = await getOrder(contract);
 
   if (!order) {
+    const approveRes = await approveIfNeed();
+    if (!approveRes) {
+      console.log("approve invalid");
+      return;
+    }
+
     await put(contract);
   }
 
