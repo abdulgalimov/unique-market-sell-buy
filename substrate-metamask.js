@@ -2,6 +2,7 @@ import {
   approveIfNeed,
   getCollection,
   getToken,
+  runPut,
   sdk,
   signer,
 } from "./base/substrate.js";
@@ -11,7 +12,6 @@ import {
   contractAbi,
   getOrder,
   runBuy,
-  runPut,
 } from "./base/metamask.js";
 import * as ethers from "ethers";
 
