@@ -1,72 +1,13 @@
-import { approveIfNeed, getCollection, getToken, init } from "./base.js";
-import { Address } from "@unique-nft/utils";
-
-const { sdk, signer, data, contractAddress, contractAbi } = init();
-
-async function getOrder(contract) {
-  try {
-    const order = await contract.call({
-      address: signer.address,
-      funcName: "getOrder",
-      gasLimit: 10_000_000,
-      args: {
-        collectionId: data.collectionId,
-        tokenId: data.tokenId,
-      },
-    });
-    return order;
-  } catch (err) {
-    console.log("get order err", err);
-    return undefined;
-  }
-}
-
-async function put(contract) {
-  const putResult = await contract.send.submitWaitResult({
-    address: signer.address,
-    funcName: "put",
-    gasLimit: 10_000_000,
-    args: {
-      collectionId: data.collectionId,
-      tokenId: data.tokenId,
-      amount: 1,
-      price: 10,
-    },
-  });
-  console.log("putResult", JSON.stringify(putResult, null, 2));
-}
-
-async function buy(contract) {
-  const args = {
-    address: signer.address,
-    funcName: "buy",
-    gasLimit: 10_000_000,
-    value: 100,
-    args: {
-      collectionId: data.collectionId,
-      tokenId: data.tokenId,
-      amount: 1,
-      buyer: Address.extract.ethCrossAccountId(signer.address),
-    },
-  };
-
-  /*
-  try {
-    const callResult = await sdk.evm.call({
-      ...args,
-      contractAddress,
-      abi: contractAbi,
-    });
-    console.log("callResult", callResult);
-  } catch (err) {
-    console.log("buy err", JSON.stringify(err, null, 2));
-    return;
-  }
-   */
-
-  const buyResult = await contract.send.submitWaitResult(args);
-  console.log("buy", JSON.stringify(buyResult, null, 2));
-}
+import {
+  approveIfNeed,
+  getCollection,
+  getToken,
+  sdk,
+  signer,
+  runPut,
+  runBuy,
+} from "./base/substrate.js";
+import { contractAddress, contractAbi, getOrder } from "./base/metamask.js";
 
 async function main() {
   console.log("substrate-substrate start", signer.address);
@@ -76,19 +17,25 @@ async function main() {
 
   const contract = await sdk.evm.contractConnect(contractAddress, contractAbi);
 
-  let order = await getOrder(contract);
+  let order = await getOrder(contract, collectionId, tokenId);
 
   if (!order) {
-    const approveRes = await approveIfNeed();
+    const approveRes = await approveIfNeed(contractAddress);
     if (!approveRes) {
       console.log("approve invalid");
       return;
     }
 
-    await put(contract);
+    await runPut(contract, collectionId, tokenId);
   }
 
-  await buy(contract);
+  await runBuy(contract, collectionId, tokenId);
 }
 
-main();
+main()
+  .then(() => {
+    console.log("exited ok");
+  })
+  .catch((err) => {
+    console.log("exited error", err);
+  });
