@@ -86,7 +86,6 @@ export async function approveIfNeed() {
       spender: contractAddress,
       isApprove: true,
     });
-    console.log("approveRes", approveRes);
     return !approveRes.error;
   } else {
     return true;

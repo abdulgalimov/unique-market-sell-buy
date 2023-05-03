@@ -1,4 +1,5 @@
 import { approveIfNeed, getCollection, getToken, init } from "./base.js";
+import { Address } from "@unique-nft/utils";
 
 const { sdk, signer, data, contractAddress, contractAbi } = init();
 
@@ -45,9 +46,11 @@ async function buy(contract) {
       collectionId: data.collectionId,
       tokenId: data.tokenId,
       amount: 1,
+      buyer: Address.extract.ethCrossAccountId(signer.address),
     },
   };
 
+  /*
   try {
     const callResult = await sdk.evm.call({
       ...args,
@@ -59,6 +62,7 @@ async function buy(contract) {
     console.log("buy err", JSON.stringify(err, null, 2));
     return;
   }
+   */
 
   const buyResult = await contract.send.submitWaitResult(args);
   console.log("buy", JSON.stringify(buyResult, null, 2));
@@ -67,7 +71,7 @@ async function buy(contract) {
 async function main() {
   console.log("substrate-substrate start", signer.address);
   const collectionId = await getCollection();
-  const tokenId = await getToken();
+  const tokenId = await getToken(true);
   console.log(`token: ${collectionId}x${tokenId}`);
 
   const contract = await sdk.evm.contractConnect(contractAddress, contractAbi);
